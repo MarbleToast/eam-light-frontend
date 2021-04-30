@@ -4,7 +4,6 @@ import EDMSWidget from 'eam-components/dist/ui/components/edms/EDMSWidget';
 import {WorkorderIcon} from 'eam-components/dist/ui/components/icons';
 import React from 'react';
 import BlockUi from 'react-block-ui';
-import {addDays, differenceInDays, parse, format} from 'date-fns'
 import set from "set-value";
 import WSEquipment from "../../../tools/WSEquipment";
 import WSWorkorder from "../../../tools/WSWorkorders";
@@ -30,6 +29,7 @@ import {assignValues, assignUserDefinedFields, assignCustomFieldFromCustomField,
 import { isCernMode } from '../../components/CERNMode';
 import { TAB_CODES } from '../../components/entityregions/TabCodeMapping';
 import { getTabAvailability, getTabInitialVisibility } from '../EntityTools';
+import { createScheduleValue } from './WorkorderUtils';
 
 
 
@@ -152,22 +152,16 @@ class Workorder extends Entity {
                 };
             }
 
-            const initialStartDate = (scheduledStartDate || value).replace('00:00', '').trim();
-            const initialEndDate = scheduledEndDate.replace('00:00', '').trim();
-
-            const dateFormat = 'dd-MMM-yyyy';
-            const incomingStartDate = parse(value, dateFormat, new Date());
-            const startDate = parse(initialStartDate, dateFormat, new Date());
-            const endDate = parse(initialEndDate, dateFormat, new Date());
-
-            const diff = differenceInDays(incomingStartDate, startDate);
-            const newEnd = format(addDays(endDate, diff), dateFormat);
-
             return {
                 [this.settings.entity]: {
                     ...prevState[this.settings.entity],
-                    scheduledStartDate: value,
-                    scheduledEndDate: newEnd
+                    ...createScheduleValue({
+                        value,
+                        startValue: scheduledStartDate,
+                        endValue: scheduledEndDate,
+                        startKey: 'scheduledStartDate',
+                        endKey: 'scheduledEndDate',
+                    })
                 }
             };
         });
