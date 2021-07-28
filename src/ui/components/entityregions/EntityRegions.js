@@ -57,7 +57,7 @@ const EntityRegions = (props) => {
                 {}
             )
         );
-    }, [inputRegions, isHiddenRegion, isNewEntity, regionMaximized, regions, visibleRegionsParam]);
+    }, [inputRegions, isHiddenRegion, isNewEntity, regionMaximized]);
 
     React.useEffect(
         () => {

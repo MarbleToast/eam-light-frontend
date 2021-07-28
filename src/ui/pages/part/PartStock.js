@@ -15,31 +15,33 @@ function PartStock(props) {
             if (partCode) {
                 WSParts.getPartStock(partCode)
                     .then((response) => {
-                        let stockData = response.body.data.map((line) => {
-                            let linkValueAsset = '/asset/';
-                            const linkValueStore = `/SSO/kiosk/${line.storeCode}/issue/employee?employee=${userID}&partCode=${partCode}`;
+                        let stockData = response.body.data
+                            .filter((e) => e !== null)
+                            .map((line) => {
+                                let linkValueAsset = '/asset/';
+                                const linkValueStore = `/SSO/kiosk/${line.storeCode}/issue/employee?employee=${userID}&partCode=${partCode}`;
 
-                            const storeCodeCell = line.storeCode ? (
-                                isCernMode ? (
-                                    <a href={linkValueStore} rel="noopener noreferrer" target="_blank">
-                                        {line.storeCode}
-                                    </a>
-                                ) : (
-                                    line.storeCode
-                                )
-                            ) : (
-                                ''
-                            );
-                            return {
-                                ...line,
-                                assetCode: line.assetCode ? (
-                                    <Link to={{ pathname: linkValueAsset + line.assetCode }}>{line.assetCode}</Link>
+                                const storeCodeCell = line.storeCode ? (
+                                    isCernMode ? (
+                                        <a href={linkValueStore} rel="noopener noreferrer" target="_blank">
+                                            {line.storeCode}
+                                        </a>
+                                    ) : (
+                                        line.storeCode
+                                    )
                                 ) : (
                                     ''
-                                ),
-                                storeCode: storeCodeCell,
-                            };
-                        });
+                                );
+                                return {
+                                    ...line,
+                                    assetCode: line.assetCode ? (
+                                        <Link to={{ pathname: linkValueAsset + line.assetCode }}>{line.assetCode}</Link>
+                                    ) : (
+                                        ''
+                                    ),
+                                    storeCode: storeCodeCell,
+                                };
+                            });
                         setData(stockData);
                     })
                     .catch((error) => {

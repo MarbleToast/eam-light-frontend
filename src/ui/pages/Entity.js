@@ -1,18 +1,23 @@
-import React, {Component} from 'react'
-import InfoPage from '../components/infopage/InfoPage'
-import BlockUi from 'react-block-ui'
-import 'react-block-ui/style.css'
-import Ajax from 'eam-components/dist/tools/ajax'
-import ErrorTypes from "../../enums/ErrorTypes";
-import queryString from "query-string";
-import set from "set-value";
-import {assignDefaultValues, assignQueryParamValues, assignCustomFieldFromCustomField, assignCustomFieldFromObject, AssignmentType} from './EntityTools';
-import WSCustomFields from "../../tools/WSCustomFields";
+import React, { Component } from 'react';
+import InfoPage from '../components/infopage/InfoPage';
+import BlockUi from 'react-block-ui';
+import 'react-block-ui/style.css';
+import Ajax from 'eam-components/dist/tools/ajax';
+import ErrorTypes from '../../enums/ErrorTypes';
+import queryString from 'query-string';
+import set from 'set-value';
+import {
+    assignDefaultValues,
+    assignQueryParamValues,
+    assignCustomFieldFromCustomField,
+    assignCustomFieldFromObject,
+    AssignmentType,
+} from './EntityTools';
+import WSCustomFields from '../../tools/WSCustomFields';
 
 export default class readEntityEquipment extends Component {
-
     constructor(props) {
-        super(props)
+        super(props);
         this.state = {
             layout: {
                 blocking: false,
@@ -22,11 +27,11 @@ export default class readEntityEquipment extends Component {
                 // the following 2 properties are used for setting the url parameters again after all the
                 // requests from the parameterized urls are finished
                 requests: 0, // number of requests that we are waiting to complete, also used for unblocking the ui
-                assignUrlParams: false // controls whether at the end of all the requests we assign the query params to the entity
-            }
-        }
+                assignUrlParams: false, // controls whether at the end of all the requests we assign the query params to the entity
+            },
+        };
         // map of all children components (the children are responsible for registration)
-        this.children = {}
+        this.children = {};
     }
 
     /**
@@ -34,22 +39,21 @@ export default class readEntityEquipment extends Component {
      *
      * @param nextProps
      */
-    componentDidMount() { 
-        const values = queryString.parse(window.location.search)
+    componentDidMount() {
+        const values = queryString.parse(window.location.search);
         // If code param is present, open it
         if (values.code) {
-            this.props.history.push(this.settings.entityURL + values.code)
-            return
+            this.props.history.push(this.settings.entityURL + values.code);
+            return;
         }
 
         let code = this.props.match.params.code;
         if (code) {
             code = decodeURIComponent(code);
-            this.readEntity(code)
+            this.readEntity(code);
         } else {
-            this.initNewEntity()
+            this.initNewEntity();
         }
-
     }
 
     /**
@@ -66,17 +70,18 @@ export default class readEntityEquipment extends Component {
             // taking into account that these values change over time
             let nextCode = this.props.match.params.code;
             let previousCode = prevProps.match.params.code;
+            console.log(nextCode + ' ' + previousCode);
 
-            if (nextCode && (nextCode !== previousCode)) {
+            if (nextCode && nextCode !== previousCode) {
                 nextCode = decodeURIComponent(nextCode);
-                this.readEntity(nextCode)
+                this.readEntity(nextCode);
             }
 
             if (!nextCode) {
-                this.initNewEntity()
+                this.initNewEntity();
             }
         }
-        
+
         if (this.state.layout.reading) {
             return;
         }
@@ -84,17 +89,17 @@ export default class readEntityEquipment extends Component {
         // if we changed state from waiting for requests to not waiting from requests
         if (this.state.layout.requests === 0 && prevState.layout.requests > 0) {
             // unblock the user interface when all the requests are completed
-            this.setLayout({blocking: false});
+            this.setLayout({ blocking: false });
 
             // handle the requests that were generated for the parameterized urls feature
             if (!this.state.assignUrlParams) {
                 // if there are no more requests to do, reassign the values in the url to the entity
-                this.setState(prevState => {
+                this.setState((prevState) => {
                     const queryParams = queryString.parse(window.location.search);
                     const entity = assignQueryParamValues(prevState[this.settings.entity], queryParams);
                     return {
                         [this.settings.entity]: entity,
-                        assignUrlParams: false
+                        assignUrlParams: false,
                     };
                 });
             }
@@ -103,20 +108,22 @@ export default class readEntityEquipment extends Component {
         }
 
         const newEntity = this.state[this.settings.entity];
-        const oldEntity = {...prevState[this.settings.entity]}; // {...undefined} = {}
+        const oldEntity = { ...prevState[this.settings.entity] }; // {...undefined} = {}
 
-        if(typeof newEntity !== 'object') {
+        if (typeof newEntity !== 'object') {
             return;
         }
 
         // create an array of the [key, value] pairs we have to pass to handle the value changing
-        const toUpdate = Object.entries(newEntity)
-            .filter(([key, value]) => oldEntity[key] !== value && this.settings.handlerFunctions && this.settings.handlerFunctions[key]);
+        const toUpdate = Object.entries(newEntity).filter(
+            ([key, value]) =>
+                oldEntity[key] !== value && this.settings.handlerFunctions && this.settings.handlerFunctions[key]
+        );
 
         if (toUpdate.length > 0) {
             // update the count of the requests that we are waiting on
             // note the use of prevLayout to prevent usage of an old incorrect layout state
-            this.setLayout(prevLayout => ({requests: prevLayout.requests + toUpdate.length}));
+            this.setLayout((prevLayout) => ({ requests: prevLayout.requests + toUpdate.length }));
 
             toUpdate.forEach(([key, value]) => this.handleUpdate(key, value));
         }
@@ -125,21 +132,22 @@ export default class readEntityEquipment extends Component {
     handleUpdate(key, value) {
         // finish the update handling, by decreasing the requests that are waiting to be completed by 1
         // note the use of prevLayout to prevent usage of an old incorrect layout state
-        const finish = () => this.setLayout(prevLayout => ({
-            requests: prevLayout.requests - 1,
-        }));
+        const finish = () =>
+            this.setLayout((prevLayout) => ({
+                requests: prevLayout.requests - 1,
+            }));
 
         const promise = this.settings.handlerFunctions[key](value);
 
         // all handler functions should return a promise
         // in the case it does not, consider the request finished and do an early exit
-        if(!promise) {
+        if (!promise) {
             finish();
             return;
         }
 
         // if we are indeed performing a request, block the user interface
-        this.setLayout({blocking: true})
+        this.setLayout({ blocking: true });
 
         promise.finally(() => {
             finish();
@@ -153,19 +161,21 @@ export default class readEntityEquipment extends Component {
     initNewEntity() {
         // Proceed only when read is allowed
         if (!this.settings.entityScreen) {
-            return
+            return;
         }
-        this.resetValidation(this.children)
-        this.setLayout({blocking: true});
-        this.settings.initNewEntity()
-            .then(response => {
+        this.resetValidation(this.children);
+        this.setLayout({ blocking: true });
+        this.settings
+            .initNewEntity()
+            .then((response) => {
                 this.setLayout({
                     newEntity: true,
                     blocking: false,
                     isModified: false,
                     // set up the initial values for the parameterized urls request tracking
-                    requests: 0, assignUrlParams: true
-                })
+                    requests: 0,
+                    assignUrlParams: true,
+                });
 
                 // Assign default values
                 let entity = this.assignValues(response.body.data);
@@ -173,16 +183,16 @@ export default class readEntityEquipment extends Component {
                 // Save to the state
                 this.setState({
                     [this.settings.entity]: entity,
-                    readError: null
-                })
+                    readError: null,
+                });
 
                 // Invoke entity specific logic on the subclass
-                this.postInit()
+                this.postInit();
             })
-            .catch(error => {
+            .catch((error) => {
                 this.props.handleError(error);
-                this.setLayout({blocking: false});
-            })
+                this.setLayout({ blocking: false });
+            });
     }
 
     /**
@@ -193,44 +203,47 @@ export default class readEntityEquipment extends Component {
     readEntity(code) {
         // Proceed only when read is allowed
         if (!this.settings.entityScreen) {
-            return
+            return;
         }
         // Reset all validators when reading new entity
-        this.resetValidation(this.children)
+        this.resetValidation(this.children);
         //
-        this.setLayout({blocking: true, reading: true});
+        this.setLayout({ blocking: true, reading: true });
         //
         if (this.cancelSource) {
             this.cancelSource.cancel();
         }
-        this.cancelSource = Ajax.getAxiosInstance().CancelToken.source()
+        this.cancelSource = Ajax.getAxiosInstance().CancelToken.source();
         //
-        this.settings.readEntity(code, {cancelToken: this.cancelSource.token})
-            .then(response => {
+        this.settings
+            .readEntity(code, { cancelToken: this.cancelSource.token })
+            .then((response) => {
                 this.setLayout({
                     newEntity: false,
                     blocking: false,
                     isModified: false,
-                    assignUrlParams: false
-                })
-                this.setState(() => ({
+                    assignUrlParams: false,
+                });
+
+                this.setState({
                     [this.settings.entity]: response.body.data,
-                     readError: null
-                }))
+                    readError: null,
+                });
+
                 // Invoke entity specific logic on the subclass
-                this.postRead(response.body.data)
+                this.postRead(response.body.data);
                 // Disable all children when updates not allowed
                 if (!this.settings.entityScreen.updateAllowed) {
-                    this.disableChildren()
+                    this.disableChildren();
                 }
-                this.setLayout({reading: false});
+                this.setLayout({ reading: false });
             })
-            .catch(error => {
+            .catch((error) => {
                 if (error.type !== ErrorTypes.REQUEST_CANCELLED) {
                     let errorMessages = this.props.handleError(error);
-                    this.setState({readError: errorMessages})
+                    this.setState({ readError: errorMessages });
                 }
-            })
+            });
     }
 
     /**
@@ -239,33 +252,36 @@ export default class readEntityEquipment extends Component {
      * @param entity
      */
     updateEntity(entity) {
-        this.setLayout({blocking: true})
+        this.setLayout({ blocking: true });
         if (this.preUpdateEntity) {
-            entity = {...entity};
+            entity = { ...entity };
             entity = this.preUpdateEntity(entity);
         }
-        this.settings.updateEntity(entity)
-            .then(response => {
+        this.settings
+            .updateEntity(entity)
+            .then((response) => {
                 const entity = response.body.data;
-                this.setState(() => ({[this.settings.entity]: entity}));
+                this.setState(() => ({ [this.settings.entity]: entity }));
                 this.setLayout({
                     newEntity: false,
                     blocking: false,
                     isModified: false,
-                    assignUrlParams: false
-                })
+                    assignUrlParams: false,
+                });
                 this.props.showNotification(
-                    this.settings.entityDesc + ' '
-                    + this.state[this.settings.entity][this.settings.entityCodeProperty]
-                    + ' has been successfully updated.')
+                    this.settings.entityDesc +
+                        ' ' +
+                        this.state[this.settings.entity][this.settings.entityCodeProperty] +
+                        ' has been successfully updated.'
+                );
                 // Invoke entity specific logic on the subclass
-                this.postUpdate(entity)
+                this.postUpdate(entity);
             })
-            .catch(error => {
-                this.processError(this.children, error)
+            .catch((error) => {
+                this.processError(this.children, error);
                 this.props.handleError(error);
-                this.setLayout({blocking: false})
-            })
+                this.setLayout({ blocking: false });
+            });
     }
 
     /**
@@ -274,36 +290,47 @@ export default class readEntityEquipment extends Component {
      * @param entity
      */
     createEntity(entity) {
-        this.setLayout({blocking: true});
+        this.setLayout({ blocking: true });
         if (this.preCreateEntity) {
-            entity = {...entity};
+            entity = { ...entity };
             entity = this.preCreateEntity(entity);
         }
-        this.settings.createEntity(entity)
-            .then(response => {
+        this.settings
+            .createEntity(entity)
+            .then((response) => {
                 const createdEntity = response.body.data;
-                this.setState(() => ({[this.settings.entity]: response.body.data}));
+                this.setState(() => ({ [this.settings.entity]: response.body.data }));
                 //
                 this.setLayout({
                     newEntity: false,
                     blocking: false,
                     isModified: false,
-                    assignUrlParams: false
+                    assignUrlParams: false,
                 });
 
                 // Set new URL (pushState does not trigger componentDidUpdate)
-                window.history.pushState({}, this.settings.entityDesc + ' ' + response.body.data,
-                   process.env.PUBLIC_URL + this.settings.entityURL + encodeURIComponent(createdEntity[this.settings.entityCodeProperty]));
+                window.history.pushState(
+                    {},
+                    this.settings.entityDesc + ' ' + response.body.data,
+                    process.env.PUBLIC_URL +
+                        this.settings.entityURL +
+                        encodeURIComponent(createdEntity[this.settings.entityCodeProperty])
+                );
 
-                this.props.showNotification(this.settings.entityDesc + ' ' + createdEntity[this.settings.entityCodeProperty] + ' has been successfully created.');
+                this.props.showNotification(
+                    this.settings.entityDesc +
+                        ' ' +
+                        createdEntity[this.settings.entityCodeProperty] +
+                        ' has been successfully created.'
+                );
                 // Invoke entity specific logic on the subclass
-                this.postCreate()
+                this.postCreate();
             })
-            .catch(error => {
+            .catch((error) => {
                 this.processError(this.children, error);
                 this.props.handleError(error);
-                this.setLayout({blocking: false})
-            })
+                this.setLayout({ blocking: false });
+            });
     }
 
     /**
@@ -312,33 +339,39 @@ export default class readEntityEquipment extends Component {
      * @param code
      */
     deleteEntity(code) {
-        this.setLayout({blocking: true})
+        this.setLayout({ blocking: true });
 
-        this.settings.deleteEntity(code)
-            .then(response => {
-                this.props.showNotification(this.settings.entityDesc + ' ' + code + ' has been successfully deleted.')
-                this.props.history.push(this.settings.entityURL)
+        this.settings
+            .deleteEntity(code)
+            .then((response) => {
+                this.props.showNotification(this.settings.entityDesc + ' ' + code + ' has been successfully deleted.');
+                this.props.history.push(this.settings.entityURL);
             })
-            .catch(error => {
+            .catch((error) => {
                 this.props.handleError(error);
-                this.setLayout({blocking: false})
-            })
+                this.setLayout({ blocking: false });
+            });
     }
 
     copyEntity() {
         //TODO clean the URL
         let code = this.state[this.settings.entity][this.settings.entityCodeProperty];
-        this.setLayout({newEntity: true, reading: true, assignUrlParams: false});
-        this.setState({[this.settings.entity]: {
-            ...assignDefaultValues(this.state[this.settings.entity],
-                                        this.settings.layout,
-                                        this.settings.layoutPropertiesMap),
-            copyFrom: code}});
+        this.setLayout({ newEntity: true, reading: true, assignUrlParams: false });
+        this.setState({
+            [this.settings.entity]: {
+                ...assignDefaultValues(
+                    this.state[this.settings.entity],
+                    this.settings.layout,
+                    this.settings.layoutPropertiesMap
+                ),
+                copyFrom: code,
+            },
+        });
         this.postInit();
         if (this.postCopy) {
             this.postCopy();
         }
-        this.setLayout({reading: false});
+        this.setLayout({ reading: false });
     }
 
     /**
@@ -347,14 +380,14 @@ export default class readEntityEquipment extends Component {
     saveHandler() {
         // Validate all children and continue when all have passed
         if (!this.validateFields(this.children)) {
-            this.props.showError('Several errors have occurred')
-            return
+            this.props.showError('Several errors have occurred');
+            return;
         }
         // Create new or update existing entity
         if (this.state.layout.newEntity) {
-            this.createEntity(this.state[this.settings.entity])
+            this.createEntity(this.state[this.settings.entity]);
         } else {
-            this.updateEntity(this.state[this.settings.entity])
+            this.updateEntity(this.state[this.settings.entity]);
         }
     }
 
@@ -363,28 +396,28 @@ export default class readEntityEquipment extends Component {
     //
     setLayout(layout) {
         if (typeof layout === 'function') {
-            this.setState(prevState => ({
+            this.setState((prevState) => ({
                 layout: {
                     ...prevState.layout,
-                    ...layout(prevState.layout)
-                }
+                    ...layout(prevState.layout),
+                },
             }));
             return;
         }
 
-        this.setState((prevState) => ({layout: {...prevState.layout, ...layout}}))
+        this.setState((prevState) => ({ layout: { ...prevState.layout, ...layout } }));
     }
 
     updateEntityProperty = (key, value) => {
         // Form was modified
         this.setLayout({
-            isModified: true
-        })
+            isModified: true,
+        });
 
         // Set state with the clone of the entity that got the key set
         this.setState((prevState) => ({
-                     [this.settings.entity]: set({...prevState[this.settings.entity]}, key, value)
-                 }));
+            [this.settings.entity]: set({ ...prevState[this.settings.entity] }, key, value),
+        }));
     };
 
     //
@@ -393,38 +426,38 @@ export default class readEntityEquipment extends Component {
     processError(children, error) {
         if (error.response) {
             // Error came from the server
-            error.response.body.errors.forEach(error => {
+            error.response.body.errors.forEach((error) => {
                 if (children[error.location]) {
                     children[error.location].setState({
                         error: true,
-                        helperText: error.message
-                    })
+                        helperText: error.message,
+                    });
                 }
-            })
+            });
         } else {
-            console.log('Error in Entity.processError', error)
+            console.log('Error in Entity.processError', error);
         }
     }
 
     validateFields(children) {
         let validationPassed = true;
-        Object.keys(children).forEach(key => {
+        Object.keys(children).forEach((key) => {
             if (children[key] && children[key].validate && !children[key].validate()) {
-                validationPassed = false
+                validationPassed = false;
             }
         });
-        return validationPassed
+        return validationPassed;
     }
 
     resetValidation(children) {
-        Object.keys(children).forEach(key => {
+        Object.keys(children).forEach((key) => {
             if (children[key] && children[key].setState) {
                 children[key].setState({
                     error: false,
-                    helperText: null
-                })
+                    helperText: null,
+                });
             }
-        })
+        });
     }
 
     //
@@ -444,24 +477,24 @@ export default class readEntityEquipment extends Component {
     // HELPER METHODS
     //
     disableChildren() {
-        Object.keys(this.children).forEach(key => {
-            this.children[key].disable()
-        })
+        Object.keys(this.children).forEach((key) => {
+            this.children[key].disable();
+        });
     }
 
     enableChildren() {
-        Object.keys(this.children).forEach(key => {
-            this.children[key].enable()
-        })
+        Object.keys(this.children).forEach((key) => {
+            this.children[key].enable();
+        });
     }
 
     onKeyDownHandler(event) {
         if (event.keyCode === 13 || event.keyCode === 121) {
-            this.saveHandler()
+            this.saveHandler();
         }
     }
 
-    onChangeClass = newClass => {
+    onChangeClass = (newClass) => {
         // TODO: refactor how entityCode is retrieved
         const entityCodeMap = {
             workorder: 'EVNT',
@@ -472,24 +505,28 @@ export default class readEntityEquipment extends Component {
 
         const entityCode = entityCodeMap[this.settings.entity] || entityCodeMap.default;
 
-        return WSCustomFields.getCustomFields(entityCode, newClass).then(response => {
-            this.setState(prevState => {
+        return WSCustomFields.getCustomFields(entityCode, newClass).then((response) => {
+            this.setState((prevState) => {
                 const entity = prevState[this.settings.entity];
                 const newCustomFields = response.body.data;
-                let newEntity = assignCustomFieldFromCustomField(entity, newCustomFields, AssignmentType.SOURCE_NOT_EMPTY);
-    
+                let newEntity = assignCustomFieldFromCustomField(
+                    entity,
+                    newCustomFields,
+                    AssignmentType.SOURCE_NOT_EMPTY
+                );
+
                 // replace custom fields with ones in query parameters if we just created the entity
-                if(!this.state.layout.isModified && this.state.layout.newEntity) {
+                if (!this.state.layout.isModified && this.state.layout.newEntity) {
                     const queryParams = queryString.parse(window.location.search);
                     newEntity = assignCustomFieldFromObject(newEntity, queryParams, AssignmentType.SOURCE_NOT_EMPTY);
                 }
 
                 return {
-                    [this.settings.entity]: newEntity
+                    [this.settings.entity]: newEntity,
                 };
             });
-        })
-    }
+        });
+    };
 
     get departmentalSecurity() {
         const { userData } = this.props;
@@ -502,26 +539,33 @@ export default class readEntityEquipment extends Component {
     //
     render() {
         if (!this.settings.entityScreen) {
-            return <InfoPage title="Access Denied"
-                             message={"You seem to have no access to the " + this.settings.entityDesc + " screen."}/>
+            return (
+                <InfoPage
+                    title="Access Denied"
+                    message={'You seem to have no access to the ' + this.settings.entityDesc + ' screen.'}
+                />
+            );
         }
 
         if (this.state.readError) {
-            return <InfoPage message={this.state.readError}/>
+            return <InfoPage message={this.state.readError} />;
         }
 
         if (!this.state[this.settings.entity]) {
-            return <BlockUi tag="div" blocking={true} style={{height: "100%", width: "100%"}}/>
+            return <BlockUi tag="div" blocking={true} style={{ height: '100%', width: '100%' }} />;
         }
 
         // Remove all children before the render (depending on the layout settings fields might have changed)
-        this.children = {}
+        this.children = {};
 
         return (
-            <div onKeyDown={this.onKeyDownHandler.bind(this)} tabIndex={0} style={{width: '100%', height: '100%', outline: "none"}}>
+            <div
+                onKeyDown={this.onKeyDownHandler.bind(this)}
+                tabIndex={0}
+                style={{ width: '100%', height: '100%', outline: 'none' }}
+            >
                 {this.settings.renderEntity()}
             </div>
-        )
+        );
     }
-
 }
