@@ -2,7 +2,7 @@ import React from 'react';
 import { ReactKeycloakProvider } from '@react-keycloak/web';
 import Keycloak from 'keycloak-js';
 
-const keycloak = new Keycloak({
+const keycloak = Keycloak({
     url: process.env.REACT_APP_KEYCLOAK_URL,
     realm: process.env.REACT_APP_KEYCLOAK_REALM,
     clientId: process.env.REACT_APP_KEYCLOAK_CLIENTID,
@@ -17,13 +17,12 @@ const handleTokens = (freshTokens) => {
 export default (props) => {
     switch (process.env.REACT_APP_LOGIN_METHOD) {
         case 'OPENID':
-            console.log('Using OpenID');
             return (
                 <ReactKeycloakProvider
                     authClient={keycloak}
                     onTokens={handleTokens}
                     initOptions={{ onLoad: 'login-required' }}
-                    LoadingComponent={() => <></>}
+                    LoadingComponent={<></>}
                 >
                     {props.children}
                 </ReactKeycloakProvider>
